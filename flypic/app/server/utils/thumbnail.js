@@ -510,10 +510,49 @@ async function extractVideoThumbnail(videoPath, outputPath) {
     const tempJpg = outputPath.replace('.webp', '_temp.jpg');
     
     // 安全验证：确保路径不包含危险字符
-    if (videoPath.includes('"') || videoPath.includes('`') || videoPath.includes('
+    // 安全验证：确保路径不包含危险字符
+    if (videoPath.includes('"') || videoPath.includes('`') || videoPath.includes('$')) {
+      console.warn(`  ⚠️ Invalid path characters detected in ${path.basename(videoPath)}`);
+      return null;
+    }
+
+    // 使用 spawn 执行 ffmpeg 命令（参数化方式，防止命令注入）
+    const { spawn } = require('child_process');
+    
+    const ffmpegSuccess = await new Promise((resolve) => {
+      const ffmpeg = spawn('ffmpeg', [
+        '-ss', '2',
+        '-i', videoPath,
+        '-vframes', '1',
+        '-q:v', '2',
+        tempJpg
+      ], {
+        timeout: 30000,
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      let stderr = '';
+      ffmpeg.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      ffmpeg.on('close', (code) => {
+        if (code !== 0 || !fs.existsSync(tempJpg)) {
+          console.warn(`  ⚠️ ffmpeg extraction failed: ${stderr.trim()}`);
+          resolve(false);
+          return;
+        }
+        resolve(true);
+      });
+
+      ffmpeg.on('error', (err) => {
+        console.warn(`  ⚠️ ffmpeg process error: ${err.message}`);
+        resolve(false);
+      });
+    });
 
     // 如果生成了 JPG，转换为 WebP
-    if (fs.existsSync(tempJpg)) {
+    if (ffmpegSuccess && fs.existsSync(tempJpg)) {
       // 先获取实际尺寸
       const metadata = await sharp(tempJpg).metadata();
 
