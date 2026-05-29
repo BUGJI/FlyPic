@@ -508,9 +508,325 @@ async function extractVideoThumbnail(videoPath, outputPath) {
 
     // 使用 ffmpeg 提取第 2 秒的帧（避免黑屏）
     const tempJpg = outputPath.replace('.webp', '_temp.jpg');
-    const ffmpegCmd = `ffmpeg -i "${videoPath}" -ss 00:00:02 -vframes 1 -q:v 2 "${tempJpg}" -y`;
+    
+    // 安全验证：确保路径不包含危险字符
+    if (videoPath.includes('"') || videoPath.includes('`') || videoPath.includes('
 
-    await execPromise(ffmpegCmd, { timeout: 10000 });
+    // 如果生成了 JPG，转换为 WebP
+    if (fs.existsSync(tempJpg)) {
+      // 先获取实际尺寸
+      const metadata = await sharp(tempJpg).metadata();
+
+      // 保持宽高比缩放到 480 高度
+      const aspectRatio = metadata.width / metadata.height;
+      const targetHeight = 480;
+      const targetWidth = Math.round(targetHeight * aspectRatio);
+
+      await sharp(tempJpg)
+        .resize(targetWidth, targetHeight, {
+          fit: 'cover',
+          position: 'center',
+          kernel: 'lanczos3',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 92, smartSubsample: false })
+        .toFile(outputPath);
+
+      fs.unlinkSync(tempJpg);  // 删除临时 JPG
+
+      const stats = fs.statSync(outputPath);
+      return {
+        width: targetWidth,
+        height: targetHeight,
+        size: stats.size,
+        path: outputPath
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(`  ⚠️ Failed to extract video thumbnail: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 生成占位缩略图（用于视频/文档等）
+ */
+async function generatePlaceholderThumbnail(outputPath, type, label) {
+  // 使用 Sharp 生成简单的占位图
+  const width = 640;
+  const height = 480;
+
+  // 不同类型的背景色和图标
+  const typeConfig = {
+    image: {
+      color: { r: 99, g: 102, b: 241 },     // 靛蓝色
+      icon: '🖼️',
+      text: '图片'
+    },
+    video: {
+      color: { r: 59, g: 130, b: 246 },     // 蓝色
+      icon: '🎬',
+      text: '视频'
+    },
+    audio: {
+      color: { r: 236, g: 72, b: 153 },     // 粉色
+      icon: '🎵',
+      text: '音频'
+    },
+    document: {
+      color: { r: 16, g: 185, b: 129 },     // 绿色
+      icon: '📄',
+      text: '文档'
+    },
+    design: {
+      color: { r: 168, g: 85, b: 247 },     // 紫色
+      icon: '🎨',
+      text: '设计'
+    },
+    other: {
+      color: { r: 107, g: 114, b: 128 },    // 灰色
+      icon: '📁',
+      text: '其他'
+    }
+  };
+
+  const config = typeConfig[type] || typeConfig.other;
+
+  const color = config.color;
+
+  // 创建渐变背景 + 图标 + 文件扩展名
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgb(${color.r},${color.g},${color.b});stop-opacity:0.15" />
+          <stop offset="100%" style="stop-color:rgb(${color.r},${color.g},${color.b});stop-opacity:0.05" />
+        </linearGradient>
+      </defs>
+      <rect width="${width}" height="${height}" fill="url(#grad)"/>
+      <text x="50%" y="35%" font-family="Arial, sans-serif" font-size="100" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.35">
+        ${config.icon}
+      </text>
+      <text x="50%" y="55%" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.7">
+        .${label.toLowerCase()}
+      </text>
+      <text x="50%" y="68%" font-family="Arial, sans-serif" font-size="24" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.5">
+        ${config.text}文件
+      </text>
+      <text x="50%" y="78%" font-family="Arial, sans-serif" font-size="18" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.4">
+        双击在默认应用中打开
+      </text>
+    </svg>
+  `;
+
+  await sharp(Buffer.from(svg))
+    .resize(640, 480)
+    .webp({ quality: 85 })
+    .toFile(outputPath);
+
+  const stats = fs.statSync(outputPath);
+  return {
+    width: 640,
+    height: 480,
+    size: stats.size,
+    path: outputPath
+  };
+}
+
+module.exports = {
+  isImageFile,
+  getFileType,
+  calculateFileHash,
+  getThumbnailConfig,
+  generateThumbnail,
+  getImageMetadata,
+  generateImageThumbnails,
+  clearSharpCache,
+  SUPPORTED_FORMATS,
+  ALL_FORMATS
+};
+)) {
+      throw new Error('Invalid video path');
+    }
+    if (outputPath.includes('"') || outputPath.includes('`') || outputPath.includes('
+
+    // 如果生成了 JPG，转换为 WebP
+    if (fs.existsSync(tempJpg)) {
+      // 先获取实际尺寸
+      const metadata = await sharp(tempJpg).metadata();
+
+      // 保持宽高比缩放到 480 高度
+      const aspectRatio = metadata.width / metadata.height;
+      const targetHeight = 480;
+      const targetWidth = Math.round(targetHeight * aspectRatio);
+
+      await sharp(tempJpg)
+        .resize(targetWidth, targetHeight, {
+          fit: 'cover',
+          position: 'center',
+          kernel: 'lanczos3',
+          withoutEnlargement: true
+        })
+        .webp({ quality: 92, smartSubsample: false })
+        .toFile(outputPath);
+
+      fs.unlinkSync(tempJpg);  // 删除临时 JPG
+
+      const stats = fs.statSync(outputPath);
+      return {
+        width: targetWidth,
+        height: targetHeight,
+        size: stats.size,
+        path: outputPath
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.warn(`  ⚠️ Failed to extract video thumbnail: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * 生成占位缩略图（用于视频/文档等）
+ */
+async function generatePlaceholderThumbnail(outputPath, type, label) {
+  // 使用 Sharp 生成简单的占位图
+  const width = 640;
+  const height = 480;
+
+  // 不同类型的背景色和图标
+  const typeConfig = {
+    image: {
+      color: { r: 99, g: 102, b: 241 },     // 靛蓝色
+      icon: '🖼️',
+      text: '图片'
+    },
+    video: {
+      color: { r: 59, g: 130, b: 246 },     // 蓝色
+      icon: '🎬',
+      text: '视频'
+    },
+    audio: {
+      color: { r: 236, g: 72, b: 153 },     // 粉色
+      icon: '🎵',
+      text: '音频'
+    },
+    document: {
+      color: { r: 16, g: 185, b: 129 },     // 绿色
+      icon: '📄',
+      text: '文档'
+    },
+    design: {
+      color: { r: 168, g: 85, b: 247 },     // 紫色
+      icon: '🎨',
+      text: '设计'
+    },
+    other: {
+      color: { r: 107, g: 114, b: 128 },    // 灰色
+      icon: '📁',
+      text: '其他'
+    }
+  };
+
+  const config = typeConfig[type] || typeConfig.other;
+
+  const color = config.color;
+
+  // 创建渐变背景 + 图标 + 文件扩展名
+  const svg = `
+    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:rgb(${color.r},${color.g},${color.b});stop-opacity:0.15" />
+          <stop offset="100%" style="stop-color:rgb(${color.r},${color.g},${color.b});stop-opacity:0.05" />
+        </linearGradient>
+      </defs>
+      <rect width="${width}" height="${height}" fill="url(#grad)"/>
+      <text x="50%" y="35%" font-family="Arial, sans-serif" font-size="100" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.35">
+        ${config.icon}
+      </text>
+      <text x="50%" y="55%" font-family="Arial, sans-serif" font-size="48" font-weight="700" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.7">
+        .${label.toLowerCase()}
+      </text>
+      <text x="50%" y="68%" font-family="Arial, sans-serif" font-size="24" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.5">
+        ${config.text}文件
+      </text>
+      <text x="50%" y="78%" font-family="Arial, sans-serif" font-size="18" fill="rgb(${color.r},${color.g},${color.b})" text-anchor="middle" dominant-baseline="middle" opacity="0.4">
+        双击在默认应用中打开
+      </text>
+    </svg>
+  `;
+
+  await sharp(Buffer.from(svg))
+    .resize(640, 480)
+    .webp({ quality: 85 })
+    .toFile(outputPath);
+
+  const stats = fs.statSync(outputPath);
+  return {
+    width: 640,
+    height: 480,
+    size: stats.size,
+    path: outputPath
+  };
+}
+
+module.exports = {
+  isImageFile,
+  getFileType,
+  calculateFileHash,
+  getThumbnailConfig,
+  generateThumbnail,
+  getImageMetadata,
+  generateImageThumbnails,
+  clearSharpCache,
+  SUPPORTED_FORMATS,
+  ALL_FORMATS
+};
+)) {
+      throw new Error('Invalid output path');
+    }
+    
+    // 使用 spawn 替代 exec，避免命令注入
+    const { spawn } = require('child_process');
+    
+    await new Promise((resolve, reject) => {
+      const ffmpeg = spawn('ffmpeg', [
+        '-i', videoPath,
+        '-ss', '00:00:02',
+        '-vframes', '1',
+        '-q:v', '2',
+        tempJpg,
+        '-y'
+      ], { timeout: 10000 });
+      
+      let stderr = '';
+      ffmpeg.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      ffmpeg.on('close', (code) => {
+        if (code === 0) {
+          resolve();
+        } else {
+          reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+        }
+      });
+      
+      ffmpeg.on('error', (err) => {
+        reject(err);
+      });
+      
+      // 超时处理
+      setTimeout(() => {
+        ffmpeg.kill('SIGTERM');
+        reject(new Error('ffmpeg timeout'));
+      }, 10000);
+    });
 
     // 如果生成了 JPG，转换为 WebP
     if (fs.existsSync(tempJpg)) {

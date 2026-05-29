@@ -104,6 +104,11 @@ router.get('/thumbnail/:libraryId/:filename', (req, res) => {
   const { libraryId, filename } = req.params;
   
   try {
+    // 安全验证：确保文件名只包含合法字符（字母、数字、连字符、下划线、点）
+    if (!/^[a-zA-Z0-9_-]+\.webp$/.test(filename)) {
+      return res.status(400).send('Invalid filename');
+    }
+
     const config = require('../../utils/config').loadConfig();
     
     // 尝试两种方式查找：数字和字符串
@@ -121,6 +126,14 @@ router.get('/thumbnail/:libraryId/:filename', (req, res) => {
     const shard = hash.slice(0, 2);
     const flypicPath = getFlypicPath(library.path);
     const thumbnailPath = path.join(flypicPath, 'thumbnails', shard, filename);
+    
+    // 安全检查：确保解析后的路径在预期的目录内
+    const resolvedPath = path.resolve(thumbnailPath);
+    const expectedDir = path.resolve(path.join(flypicPath, 'thumbnails'));
+    
+    if (!resolvedPath.startsWith(expectedDir + path.sep) && resolvedPath !== expectedDir) {
+      return res.status(403).send('Access denied');
+    }
     
     if (!fs.existsSync(thumbnailPath)) {
       return res.status(404).send('Thumbnail not found');
@@ -142,6 +155,15 @@ router.get('/original/:libraryId/*', (req, res) => {
   const imagePath = req.params[0]; // 获取通配符匹配的路径
   
   try {
+    // 安全验证：防止路径遍历攻击
+    // 解码 URL 编码的路径
+    const decodedPath = decodeURIComponent(imagePath);
+    
+    // 检查是否包含路径遍历模式
+    if (decodedPath.includes('..') || decodedPath.startsWith('/') || decodedPath.startsWith('\\')) {
+      return res.status(403).send('Invalid path');
+    }
+    
     const config = require('../../utils/config').loadConfig();
     
     // 尝试两种方式查找：数字和字符串
@@ -154,7 +176,15 @@ router.get('/original/:libraryId/*', (req, res) => {
       return res.status(404).send('Library not found');
     }
     
-    const fullPath = path.join(library.path, imagePath);
+    const fullPath = path.join(library.path, decodedPath);
+    
+    // 安全检查：确保解析后的路径在素材库目录内
+    const resolvedPath = path.resolve(fullPath);
+    const expectedDir = path.resolve(library.path);
+    
+    if (!resolvedPath.startsWith(expectedDir + path.sep) && resolvedPath !== expectedDir) {
+      return res.status(403).send('Access denied');
+    }
     
     if (!fs.existsSync(fullPath)) {
       return res.status(404).send('Image not found');
