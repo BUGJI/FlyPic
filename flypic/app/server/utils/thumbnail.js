@@ -686,48 +686,6 @@ module.exports = {
   SUPPORTED_FORMATS,
   ALL_FORMATS
 };
-)) {
-      throw new Error('Invalid video path');
-    }
-    if (outputPath.includes('"') || outputPath.includes('`') || outputPath.includes('
-
-    // 如果生成了 JPG，转换为 WebP
-    if (fs.existsSync(tempJpg)) {
-      // 先获取实际尺寸
-      const metadata = await sharp(tempJpg).metadata();
-
-      // 保持宽高比缩放到 480 高度
-      const aspectRatio = metadata.width / metadata.height;
-      const targetHeight = 480;
-      const targetWidth = Math.round(targetHeight * aspectRatio);
-
-      await sharp(tempJpg)
-        .resize(targetWidth, targetHeight, {
-          fit: 'cover',
-          position: 'center',
-          kernel: 'lanczos3',
-          withoutEnlargement: true
-        })
-        .webp({ quality: 92, smartSubsample: false })
-        .toFile(outputPath);
-
-      fs.unlinkSync(tempJpg);  // 删除临时 JPG
-
-      const stats = fs.statSync(outputPath);
-      return {
-        width: targetWidth,
-        height: targetHeight,
-        size: stats.size,
-        path: outputPath
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.warn(`  ⚠️ Failed to extract video thumbnail: ${error.message}`);
-    return null;
-  }
-}
 
 /**
  * 生成占位缩略图（用于视频/文档等）
@@ -826,84 +784,6 @@ module.exports = {
   SUPPORTED_FORMATS,
   ALL_FORMATS
 };
-)) {
-      throw new Error('Invalid output path');
-    }
-    
-    // 使用 spawn 替代 exec，避免命令注入
-    const { spawn } = require('child_process');
-    
-    await new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', [
-        '-i', videoPath,
-        '-ss', '00:00:02',
-        '-vframes', '1',
-        '-q:v', '2',
-        tempJpg,
-        '-y'
-      ], { timeout: 10000 });
-      
-      let stderr = '';
-      ffmpeg.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-      
-      ffmpeg.on('close', (code) => {
-        if (code === 0) {
-          resolve();
-        } else {
-          reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
-        }
-      });
-      
-      ffmpeg.on('error', (err) => {
-        reject(err);
-      });
-      
-      // 超时处理
-      setTimeout(() => {
-        ffmpeg.kill('SIGTERM');
-        reject(new Error('ffmpeg timeout'));
-      }, 10000);
-    });
-
-    // 如果生成了 JPG，转换为 WebP
-    if (fs.existsSync(tempJpg)) {
-      // 先获取实际尺寸
-      const metadata = await sharp(tempJpg).metadata();
-
-      // 保持宽高比缩放到 480 高度
-      const aspectRatio = metadata.width / metadata.height;
-      const targetHeight = 480;
-      const targetWidth = Math.round(targetHeight * aspectRatio);
-
-      await sharp(tempJpg)
-        .resize(targetWidth, targetHeight, {
-          fit: 'cover',
-          position: 'center',
-          kernel: 'lanczos3',
-          withoutEnlargement: true
-        })
-        .webp({ quality: 92, smartSubsample: false })
-        .toFile(outputPath);
-
-      fs.unlinkSync(tempJpg);  // 删除临时 JPG
-
-      const stats = fs.statSync(outputPath);
-      return {
-        width: targetWidth,
-        height: targetHeight,
-        size: stats.size,
-        path: outputPath
-      };
-    }
-
-    return null;
-  } catch (error) {
-    console.warn(`  ⚠️ Failed to extract video thumbnail: ${error.message}`);
-    return null;
-  }
-}
 
 /**
  * 生成占位缩略图（用于视频/文档等）
